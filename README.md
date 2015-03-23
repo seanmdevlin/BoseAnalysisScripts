@@ -1,0 +1,2 @@
+# BoseAnalysisScripts
+These scripts are written for the expedited analysis of raw data (*.CSV) generated from a Bose Electroforce mechanical testing device, particularly the machine in Temple University's Bioengineering department.  The first batch of scripts posted here is intended to find the equilibrium and dynamic stiffnesses of cartilage from a combined step stress-relaxation  and dynamic frequency sweep study.
