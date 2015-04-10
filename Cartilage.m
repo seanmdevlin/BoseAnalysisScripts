@@ -30,15 +30,15 @@ else
             continue
         end
         % Parse the name for important info
-        SampleNum = regexpi(Data{i}.Name,'Samp[ _-L]*(\d{1,})','tokens');
+        SampleNum = regexpi(Data{i}.Name,'Samp[ _-]*(\d{1,})','tokens');
             Data{i}.SampleNum = str2double(cell2mat(SampleNum{:}));
-        Thickness = regexpi(Data{i}.Name,'t\s*(\d{1,}|\d{1,}[.]\d{1,})','tokens');
+        Thickness = regexpi(Data{i}.Name,'t\s*(\d{1,}[.]\d{1,})','tokens');
             Data{i}.Thickness = str2double(cell2mat(Thickness{:}));
-        Diameter  = regexpi(Data{i}.Name,'d\s*(\d{1,}|\d{1,}[.]\d{1,})','tokens');
+        Diameter  = regexpi(Data{i}.Name,'d\s*(\d{1,}[.]\d{1,})','tokens');
             Data{i}.Diameter  = str2double(cell2mat(Diameter{:}));
         Location  = regexpi(Data{i}.Name,'loc(\d*)','tokens');
             Data{i}.Location  = str2double(cell2mat(Location{:}));
-        DateMDY    = regexpi(Data{i}.Name,'\d{4,4}[ _-]\d{2,2}[ _-]\d{2,2}','match');
+        DateMDY    = regexpi(Data{i}.Name,'\d{4,4}-\d{2,2}-\d{2,2}','match');
             Data{i}.Date.Month= str2double(DateMDY{:}(6:7));
             Data{i}.Date.Day  = str2double(DateMDY{:}(9:10));
             Data{i}.Date.Year = str2double(DateMDY{:}(1:4));
@@ -82,25 +82,23 @@ for samples = 1:length(Data)
         Strain.roundedRatio = 0.025 .* round(Strain.ratio ./ 0.025);
         Strain.Steps = unique(Strain.roundedRatio);
         for n = 1:length(Strain.Steps)
-            try
-                % Calculate Stress Relaxation
-                Strain.mask = Strain.Steps(n) == Strain.roundedRatio;
-                Time.Now = Time.sec(Strain.mask);
-                Time.Length = max(Time.Now)-min(Time.Now);
-                Stress.Now = Stress.Pa(Strain.mask);
-                [~,maxStressInd] = max(Stress.Now);
-                xData = Time.Now(maxStressInd:end) - Time.Now(maxStressInd);
-                yData = Stress.Now(maxStressInd:end);
-                [Data{1,samples}.Eq.Stress(n).fitresult,    ...
-                 Data{1,samples}.Eq.Stress(n).gof       ] = ...
-                    StressEqFit(xData, yData);
-                Data{1,samples}.Eq.Results.Stress(n) = ...
-                    Data{1,samples}.Eq.Stress(n).fitresult.c;
-                % Calculate Mean Strain at step
-                Strain.Now = Strain.ratio(Strain.mask);
-                Data{1,samples}.Eq.Results.Strain(n) = ...
-                    mean(Strain.Now(maxStressInd:end));
-            end
+            % Calculate Stress Relaxation
+            Strain.mask = Strain.Steps(n) == Strain.roundedRatio;
+            Time.Now = Time.sec(Strain.mask);
+            Time.Length = max(Time.Now)-min(Time.Now);
+            Stress.Now = Stress.Pa(Strain.mask);
+            [~,maxStressInd] = max(Stress.Now);
+            xData = Time.Now(maxStressInd:end) - Time.Now(maxStressInd);
+            yData = Stress.Now(maxStressInd:end);
+            [Data{1,samples}.Eq.Stress(n).fitresult,    ...
+             Data{1,samples}.Eq.Stress(n).gof       ] = ...
+                StressEqFit(xData, yData);
+            Data{1,samples}.Eq.Results.Stress(n) = ...
+                Data{1,samples}.Eq.Stress(n).fitresult.c;
+            % Calculate Mean Strain at step
+            Strain.Now = Strain.ratio(Strain.mask);
+            Data{1,samples}.Eq.Results.Strain(n) = ...
+                mean(Strain.Now(maxStressInd:end));
         end
         % Calculate Equilibrium Stiffness
         xData = [Data{1,samples}.Eq.Results.Strain];
@@ -109,18 +107,14 @@ for samples = 1:length(Data)
         Data{1,samples}.Modulus.Eq = Data{1,samples}.Eq.fitresult.p1;
     elseif Data{1,samples}.Type.Dyn
         %% Dynamic Modulus
-        Strain.filter = abs(Strain.ratio-repmat(mode(Strain.ratio),size(Strain.ratio,1),1)) < ...
-            repmat(std(Strain.ratio),size(Strain.ratio,1),1);
-        Strain.filter = Strain.filter(:,1) & Strain.filter(:,2);
-        DynModulus = diff(Stress.Pa(Strain.filter,:),1,2) ./ ...
-            diff(Strain.ratio(Strain.filter,:),1,2);
+        DynModulus = diff(Stress.Pa,1,2) ./ diff(Strain.ratio,1,2);
         allCounts = unique(Data{1,samples}.Counts);
         allTimes  = unique(Data{1,samples}.ElapsedTime_sec);
         
         allDynMod = zeros(size(allCounts));
         for i = 1:length(allCounts)
             allDynMod(i,1) = mean( ...
-                DynModulus( Data{1,samples}.Counts(Strain.filter,:) == allCounts(i) ) );
+                DynModulus( Data{1,samples}.Counts == allCounts(i) ) );
         end
         
         allFreqs = round(diff(allCounts)./diff(allTimes)./0.01).*0.01;
